@@ -22,7 +22,6 @@ import java.util.function.Supplier;
 public class TechBlogServiceImpl implements TechBlogService {
 
     private final TechBlogRepository techBlogRepository;
-    private final MeterRegistry meterRegistry;
 
     private final Counter blogCreationCounter;
     private final Counter blogUpdateCounter;
@@ -31,7 +30,6 @@ public class TechBlogServiceImpl implements TechBlogService {
 
     public TechBlogServiceImpl(TechBlogRepository techBlogRepository, MeterRegistry meterRegistry) {
         this.techBlogRepository = techBlogRepository;
-        this.meterRegistry = meterRegistry;
         
         // Initialize counters
         this.blogCreationCounter = Counter.builder("blog.creation.count")
