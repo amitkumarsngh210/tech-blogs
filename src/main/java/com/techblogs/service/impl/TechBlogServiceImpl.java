@@ -3,96 +3,108 @@ package com.techblogs.service.impl;
 import com.techblogs.model.TechBlog;
 import com.techblogs.repository.TechBlogRepository;
 import com.techblogs.service.TechBlogService;
-import jakarta.persistence.EntityNotFoundException;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import io.micrometer.tracing.annotation.NewSpan;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class TechBlogServiceImpl implements TechBlogService {
 
-    private static final Logger logger = LoggerFactory.getLogger(TechBlogServiceImpl.class);
     private final TechBlogRepository techBlogRepository;
+    private final MeterRegistry meterRegistry;
 
-    @Override
-    public TechBlog createBlog(TechBlog techBlog) {
-        logger.debug("Creating new blog post with title: {}", techBlog.getTitle());
-        TechBlog savedBlog = techBlogRepository.save(techBlog);
-        logger.info("Successfully created blog post with id: {}", savedBlog.getId());
-        return savedBlog;
-    }
+    private final Counter blogCreationCounter;
+    private final Counter blogUpdateCounter;
+    private final Counter blogDeletionCounter;
+    private final Timer blogOperationTimer;
 
-    @Override
-    public TechBlog updateBlog(Long id, TechBlog techBlog) {
-        logger.debug("Updating blog post with id: {}", id);
-        TechBlog existingBlog = techBlogRepository.findById(id)
-                .orElseThrow(() -> {
-                    logger.error("Blog post not found with id: {}", id);
-                    return new EntityNotFoundException("Blog not found with id: " + id);
-                });
+    public TechBlogServiceImpl(TechBlogRepository techBlogRepository, MeterRegistry meterRegistry) {
+        this.techBlogRepository = techBlogRepository;
+        this.meterRegistry = meterRegistry;
         
-        existingBlog.setTitle(techBlog.getTitle());
-        existingBlog.setContent(techBlog.getContent());
-        existingBlog.setAuthor(techBlog.getAuthor());
-        existingBlog.setTopic(techBlog.getTopic());
+        // Initialize counters
+        this.blogCreationCounter = Counter.builder("blog.creation.count")
+                .description("Number of blog posts created")
+                .register(meterRegistry);
         
-        TechBlog updatedBlog = techBlogRepository.save(existingBlog);
-        logger.info("Successfully updated blog post with id: {}", id);
-        return updatedBlog;
+        this.blogUpdateCounter = Counter.builder("blog.update.count")
+                .description("Number of blog posts updated")
+                .register(meterRegistry);
+        
+        this.blogDeletionCounter = Counter.builder("blog.deletion.count")
+                .description("Number of blog posts deleted")
+                .register(meterRegistry);
+        
+        this.blogOperationTimer = Timer.builder("blog.operation.time")
+                .description("Time taken for blog operations")
+                .register(meterRegistry);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public TechBlog getBlogById(Long id) {
-        logger.debug("Fetching blog post with id: {}", id);
-        return techBlogRepository.findById(id)
-                .orElseThrow(() -> {
-                    logger.error("Blog post not found with id: {}", id);
-                    return new EntityNotFoundException("Blog not found with id: " + id);
-                });
+    @NewSpan("create-blog")
+    @Transactional
+    public TechBlog createBlog(TechBlog blog) {
+        log.info("Creating new blog post: {}", blog.getTitle());
+        blogCreationCounter.increment();
+        return blogOperationTimer.wrap((Supplier<TechBlog>) () -> techBlogRepository.save(blog)).get();
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @NewSpan("get-blog")
+    public Optional<TechBlog> getBlog(Long id) {
+        log.info("Fetching blog post with id: {}", id);
+        return blogOperationTimer.wrap((Supplier<Optional<TechBlog>>) () -> techBlogRepository.findById(id)).get();
+    }
+
+    @Override
+    @NewSpan("get-all-blogs")
     public List<TechBlog> getAllBlogs() {
-        logger.debug("Fetching all blog posts");
-        List<TechBlog> blogs = techBlogRepository.findAll();
-        logger.info("Retrieved {} blog posts", blogs.size());
-        return blogs;
+        log.info("Fetching all blog posts");
+        return blogOperationTimer.wrap((Supplier<List<TechBlog>>) () -> techBlogRepository.findAll()).get();
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<TechBlog> getBlogsByTopic(String topic) {
-        logger.debug("Fetching blog posts for topic: {}", topic);
-        List<TechBlog> blogs = techBlogRepository.findByTopic(topic);
-        logger.info("Retrieved {} blog posts for topic: {}", blogs.size(), topic);
-        return blogs;
+    @NewSpan("update-blog")
+    @Transactional
+    public Optional<TechBlog> updateBlog(Long id, TechBlog blog) {
+        log.info("Updating blog post with id: {}", id);
+        return blogOperationTimer.wrap((Supplier<Optional<TechBlog>>) () -> 
+            techBlogRepository.findById(id)
+                .map(existingBlog -> {
+                    existingBlog.setTitle(blog.getTitle());
+                    existingBlog.setContent(blog.getContent());
+                    existingBlog.setAuthor(blog.getAuthor());
+                    existingBlog.setTags(blog.getTags());
+                    blogUpdateCounter.increment();
+                    return techBlogRepository.save(existingBlog);
+                })
+        ).get();
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<TechBlog> getBlogsByAuthor(String author) {
-        logger.debug("Fetching blog posts by author: {}", author);
-        List<TechBlog> blogs = techBlogRepository.findByAuthor(author);
-        logger.info("Retrieved {} blog posts by author: {}", blogs.size(), author);
-        return blogs;
-    }
-
-    @Override
-    public void deleteBlog(Long id) {
-        logger.debug("Attempting to delete blog post with id: {}", id);
-        if (!techBlogRepository.existsById(id)) {
-            logger.error("Blog post not found with id: {}", id);
-            throw new EntityNotFoundException("Blog not found with id: " + id);
-        }
-        techBlogRepository.deleteById(id);
-        logger.info("Successfully deleted blog post with id: {}", id);
+    @NewSpan("delete-blog")
+    @Transactional
+    public boolean deleteBlog(Long id) {
+        log.info("Deleting blog post with id: {}", id);
+        return blogOperationTimer.wrap((Supplier<Boolean>) () -> 
+            techBlogRepository.findById(id)
+                .map(blog -> {
+                    techBlogRepository.delete(blog);
+                    blogDeletionCounter.increment();
+                    return true;
+                })
+                .orElse(false)
+        ).get();
     }
 } 

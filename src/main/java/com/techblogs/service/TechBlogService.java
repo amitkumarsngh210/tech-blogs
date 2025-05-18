@@ -2,13 +2,12 @@ package com.techblogs.service;
 
 import com.techblogs.model.TechBlog;
 import java.util.List;
+import java.util.Optional;
 
 public interface TechBlogService {
-    TechBlog createBlog(TechBlog techBlog);
-    TechBlog updateBlog(Long id, TechBlog techBlog);
-    TechBlog getBlogById(Long id);
+    TechBlog createBlog(TechBlog blog);
+    Optional<TechBlog> getBlog(Long id);
     List<TechBlog> getAllBlogs();
-    List<TechBlog> getBlogsByTopic(String topic);
-    List<TechBlog> getBlogsByAuthor(String author);
-    void deleteBlog(Long id);
+    Optional<TechBlog> updateBlog(Long id, TechBlog blog);
+    boolean deleteBlog(Long id);
 } 

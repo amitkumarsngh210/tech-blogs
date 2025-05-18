@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Entity
@@ -32,8 +33,10 @@ public class TechBlog {
     @Column(nullable = false)
     private String author;
     
-    @Column(name = "topic", nullable = false)
-    private String topic;
+    @ElementCollection
+    @CollectionTable(name = "blog_tags", joinColumns = @JoinColumn(name = "blog_id"))
+    @Column(name = "tag")
+    private List<String> tags;
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

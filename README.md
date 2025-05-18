@@ -43,7 +43,7 @@ Content-Type: application/json
     "title": "Getting Started with Spring Boot",
     "content": "Spring Boot makes it easy to create stand-alone, production-grade Spring based Applications...",
     "author": "John Doe",
-    "topic": "Spring Boot"
+    "tags": ["Spring Boot", "Java", "Backend"]
 }
 ```
 
@@ -76,7 +76,7 @@ Content-Type: application/json
     "title": "Updated Title",
     "content": "Updated content...",
     "author": "John Doe",
-    "topic": "Spring Boot"
+    "tags": ["Spring Boot", "Java", "Backend"]
 }
 ```
 
@@ -93,6 +93,10 @@ DELETE /api/blogs/{id}
 - Global exception handling
 - Transactional management
 - Lombok for reducing boilerplate code
+- OpenTelemetry integration for distributed tracing
+- Micrometer metrics for monitoring
+- Prometheus metrics export
+- Structured logging with Logback
 
 ## Technologies Used
 
@@ -102,3 +106,7 @@ DELETE /api/blogs/{id}
 - Lombok
 - Maven
 - Java 17
+- OpenTelemetry
+- Micrometer
+- Prometheus
+- Logback
